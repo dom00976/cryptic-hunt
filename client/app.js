@@ -17,7 +17,7 @@ let questions = [];
 let currentQuestionIndex = 0;
 
 // API URL
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://cryptic-hunt-backend-kmik.onrender.com';
 
 // Event Listeners
 loginForm.addEventListener('submit', handleLogin);
