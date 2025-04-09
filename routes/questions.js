@@ -1,78 +1,103 @@
-const router = require('express').Router();
+const express = require('express');
+const router = express.Router();
 const Question = require('../models/Question');
 const auth = require('../middleware/auth');
+const admin = require('../middleware/admin');
 
 // Get all questions
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
-    const questions = await Question.find().sort({ order: 1 });
+    const questions = await Question.find().select('-answer');
     res.json(questions);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Create a new question (admin only)
-router.post('/', auth, async (req, res) => {
+// Get single question
+router.get('/:id', auth, async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ message: 'Access denied' });
+    const question = await Question.findById(req.params.id).select('-answer');
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+    res.json(question);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Submit answer
+router.post('/:id/answer', auth, async (req, res) => {
+  try {
+    const { answer } = req.body;
+    const question = await Question.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
     }
 
+    if (answer.toLowerCase() === question.answer.toLowerCase()) {
+      res.json({ correct: true });
+    } else {
+      res.json({ correct: false });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin routes
+// Create question
+router.post('/', [auth, admin], async (req, res) => {
+  try {
+    const { title, description, answer, points } = req.body;
     const question = new Question({
-      question: req.body.question,
-      answer: req.body.answer,
-      hint: req.body.hint,
-      order: req.body.order
+      title,
+      description,
+      answer,
+      points
     });
-
-    const newQuestion = await question.save();
-    res.status(201).json(newQuestion);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    await question.save();
+    res.status(201).json(question);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Update a question (admin only)
-router.put('/:id', auth, async (req, res) => {
+// Update question
+router.put('/:id', [auth, admin], async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const question = await Question.findById(req.params.id);
+    const question = await Question.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
     if (!question) {
       return res.status(404).json({ message: 'Question not found' });
     }
-
-    question.question = req.body.question || question.question;
-    question.answer = req.body.answer || question.answer;
-    question.hint = req.body.hint || question.hint;
-    question.order = req.body.order || question.order;
-
-    const updatedQuestion = await question.save();
-    res.json(updatedQuestion);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.json(question);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Delete a question (admin only)
-router.delete('/:id', auth, async (req, res) => {
+// Delete question
+router.delete('/:id', [auth, admin], async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const question = await Question.findById(req.params.id);
+    const question = await Question.findByIdAndDelete(req.params.id);
     if (!question) {
       return res.status(404).json({ message: 'Question not found' });
     }
-
-    await question.remove();
     res.json({ message: 'Question deleted' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
